@@ -1,4 +1,4 @@
-// Web Audio 合成：14 音效 + 8 小节五声音阶 BGM + 振动。
+// Web Audio 合成：14 音效 + 本地音频文件 BGM + 振动。
 // 单 AudioContext 懒建；任何不支持/异常全部静默降级，振动逻辑不受影响。
 import { CONFIG } from "../config.js";
 
@@ -11,33 +11,6 @@ function pent(deg, oct = 0) {
   const semi = 12 * (5 + oct + Math.floor(deg / 5)) + SC[PENT_NAMES[d]];
   return 440 * 2 ** ((semi - 69) / 12);
 }
-// 绝对音名：noteFreq("C", 4) = C4
-function noteFreq(name, oct) {
-  return 440 * 2 ** ((12 * (oct + 1) + SC[name] - 69) / 12);
-}
-
-// 8 小节 × 8 个八分音；-1 = 休止，0..4 = 五声级，数字串在下方旋律表里
-// 五声音阶上行：C D E G A
-const MELODY = [
-  // bar 1
-  0, -1, 2, -1, 4, -1, 2, -1,
-  // bar 2
-  4, -1, 4, -1, 2, -1, 1, -1,
-  // bar 3
-  0, -1, 1, -1, 2, -1, 4, -1,
-  // bar 4（高八度）
-  4 + 5, -1, 5, -1, 4, -1, 4, -1,
-  // bar 5
-  2, -1, 4, -1, 4, -1, 4, -1,
-  // bar 6
-  2, -1, 1, -1, 0, -1, 1, -1,
-  // bar 7
-  4, -1, 4, -1, 4, -1, 2, -1,
-  // bar 8
-  1, -1, 0, -1, -1, -1, -1, -1,
-];
-// 每小节根音（低音盒，第 0 拍与第 4 个八分音）
-const BASS = ["C", "G", "A", "E", "C", "A", "G", "C"];
 
 // 优先级：消除 > 放置 > UI
 const PRIORITY = {
@@ -47,23 +20,20 @@ const PRIORITY = {
 };
 
 const SFX_BUS_GAIN = 0.5;
-const MUSIC_BUS_GAIN = 10 ** (-18 / 20); // -18dB
-const BPM = 118;
-const EIGHTH = 60 / BPM / 2;
+// BGM：本地音频文件循环（相对 game.html 路径）
+const BGM_SRC = "demo-videos/bgm/B_whistle_jingle.mp3";
+const BGM_VOLUME = 0.45; // 基础音量；暂停时压到 40%，关键音效闪避时压到 60%
 
 export function createSound(store) {
   let ctx = null;
   let sfxBus = null;
-  let musicBus = null;
-  let schedulerId = 0;
-  let nextStepTime = 0;
-  let step = 0;
+  let bgmEl = null;
   let bgmStarted = false;
+  let duckTimer = 0;
 
   let sfxOn = !!store.sfxOn;
   let musicOn = !!store.musicOn;
   let paused = false;
-  let duckUntil = 0;
 
   const voices = []; // { priority, hardStop }
 
@@ -80,9 +50,6 @@ export function createSound(store) {
       sfxBus = ctx.createGain();
       sfxBus.gain.value = SFX_BUS_GAIN;
       sfxBus.connect(ctx.destination);
-      musicBus = ctx.createGain();
-      musicBus.gain.value = musicOn ? MUSIC_BUS_GAIN : 0;
-      musicBus.connect(ctx.destination);
       return true;
     } catch {
       ctx = null;
@@ -115,7 +82,7 @@ export function createSound(store) {
   }) {
     if (!supported()) return;
     const time = t0 || ctx.currentTime + 0.01;
-    const out = bus === "music" ? musicBus : sfxBus;
+    const out = sfxBus;
     const osc = ctx.createOscillator();
     osc.type = type;
     osc.frequency.setValueAtTime(freq, time);
@@ -151,69 +118,46 @@ export function createSound(store) {
     }
   }
 
-  // ---------- BGM（高音音乐盒/钟琴：明亮泛音、快速衰减、无沉闷低音） ----------
-  function musicBoxStep(time) {
-    const idx = step % MELODY.length;
-    const deg = MELODY[idx];
-    if (deg >= 0) {
-      // 整体升高八度到 C6 区，叮咚感清脆
-      const oct = (deg >= 5 ? 1 : 0) + 1;
-      const d = deg % 5;
-      const f = pent(d, oct);
-      // 基音：三角波，短起音 + 略长余韵（音乐盒共鸣）
-      tone({ freq: f, type: "triangle", t0: time, dur: 0.26, peak: 0.2, bus: "music", attack: 0.004 });
-      // 2 倍频泛音：亮
-      tone({ freq: f * 2, type: "sine", t0: time, dur: 0.16, peak: 0.085, bus: "music", attack: 0.003 });
-      // ~3 倍频金属泛音：钟琴般的清脆光泽
-      tone({ freq: f * 3.01, type: "sine", t0: time, dur: 0.1, peak: 0.028, bus: "music", attack: 0.003 });
-    }
-    // 每小节强拍：高音区轻“叮”代替原低音盒（C5 区，短促低音量）
-    if (idx % 8 === 0 || idx % 8 === 4) {
-      const bar = Math.floor(idx / 8);
-      const bf = noteFreq(BASS[bar], 5);
-      tone({ freq: bf, type: "triangle", t0: time, dur: 0.14, peak: 0.055, bus: "music", attack: 0.004 });
-      tone({ freq: bf * 2, type: "sine", t0: time, dur: 0.08, peak: 0.02, bus: "music", attack: 0.003 });
-    }
-    step++;
+  // ---------- BGM（本地音频文件循环播放，HTMLAudio 不走 AudioContext） ----------
+  function bgmTargetVolume() {
+    return !musicOn ? 0 : paused ? BGM_VOLUME * 0.4 : BGM_VOLUME;
   }
 
-  function schedulerTick() {
-    if (!ctx) return;
-    while (nextStepTime < ctx.currentTime + 0.3) {
-      musicBoxStep(nextStepTime);
-      nextStepTime += EIGHTH;
-    }
+  function applyMusicGain() {
+    if (bgmEl) bgmEl.volume = bgmTargetVolume();
   }
 
   function startBgm() {
-    if (!supported() || bgmStarted) return;
+    if (bgmStarted) {
+      // 已在播但被暂停策略拦住时，借本次用户手势重试
+      if (bgmEl && bgmEl.paused && musicOn && !paused) playBgm();
+      return;
+    }
     bgmStarted = true;
-    step = 0;
-    nextStepTime = ctx.currentTime + 0.1;
-    schedulerId = window.setInterval(schedulerTick, 100);
+    try {
+      bgmEl = new Audio(BGM_SRC);
+      bgmEl.loop = true;
+      bgmEl.volume = bgmTargetVolume();
+    } catch {
+      bgmEl = null;
+    }
+    playBgm();
   }
 
-  function applyMusicGain(ms = 0.12) {
-    if (!supported()) return;
-    const target = !musicOn ? 0 : paused ? MUSIC_BUS_GAIN * 0.4 : MUSIC_BUS_GAIN;
-    const now = ctx.currentTime;
-    musicBus.gain.cancelScheduledValues(now);
-    musicBus.gain.setValueAtTime(Math.max(0.0001, musicBus.gain.value), now);
-    musicBus.gain.linearRampToValueAtTime(Math.max(0.0001, target), now + ms);
+  function playBgm() {
+    if (!bgmEl) return;
+    try {
+      const p = bgmEl.play();
+      if (p) p.catch(() => { /* 自动播放被拒静默，下次手势重试 */ });
+    } catch { /* noop */ }
   }
 
   // 关键音效闪避：0.5s 内压到 60% 再恢复
   function duck() {
-    if (!supported() || !musicOn) return;
-    const now = ctx.currentTime;
-    duckUntil = now + 0.5;
-    musicBus.gain.cancelScheduledValues(now);
-    musicBus.gain.setValueAtTime(Math.max(0.0001, musicBus.gain.value), now);
-    musicBus.gain.linearRampToValueAtTime(MUSIC_BUS_GAIN * 0.6, now + 0.08);
-    musicBus.gain.linearRampToValueAtTime(
-      paused ? MUSIC_BUS_GAIN * 0.4 : MUSIC_BUS_GAIN,
-      now + 0.5
-    );
+    if (!bgmEl || !musicOn) return;
+    bgmEl.volume = BGM_VOLUME * 0.6;
+    clearTimeout(duckTimer);
+    duckTimer = setTimeout(applyMusicGain, 500);
   }
 
   // ---------- 14 音效配方 ----------
@@ -315,10 +259,12 @@ export function createSound(store) {
   };
 
   function unlock() {
-    if (!initContext()) return;
-    try {
-      if (ctx.state === "suspended") void ctx.resume();
-    } catch { /* noop */ }
+    // BGM 是 HTMLAudio，不依赖 AudioContext；即使 AC 不可用也要尝试开播
+    if (initContext()) {
+      try {
+        if (ctx.state === "suspended") void ctx.resume();
+      } catch { /* noop */ }
+    }
     startBgm();
   }
 
@@ -339,25 +285,25 @@ export function createSound(store) {
 
   function setMusicOn(on) {
     musicOn = !!on;
-    if (supported() && ctx.state === "running") applyMusicGain(0.15);
-    else if (supported()) applyMusicGain(0.0);
+    applyMusicGain();
+    if (on) playBgm();
   }
 
   function setPaused(on) {
     paused = !!on;
-    applyMusicGain(0.2);
+    applyMusicGain();
   }
 
   function suspend() {
-    if (!supported()) return;
-    try { void ctx.suspend(); } catch { /* noop */ }
+    try { if (ctx && ctx.state !== "closed") void ctx.suspend(); } catch { /* noop */ }
+    try { bgmEl?.pause(); } catch { /* noop */ }
   }
 
   function resume() {
-    if (!supported()) return;
     try {
-      if (ctx.state === "suspended") void ctx.resume();
+      if (ctx && ctx.state === "suspended") void ctx.resume();
     } catch { /* noop */ }
+    if (bgmStarted && musicOn && !paused) playBgm();
   }
 
   // 振动：受音效开关控制，仅在支持时调用
@@ -379,7 +325,8 @@ export function createSound(store) {
       paused,
       bgmStarted,
       voices: voices.length,
-      musicGain: musicBus ? musicBus.gain.value : null,
+      bgmVolume: bgmEl ? bgmEl.volume : null,
+      bgmPlaying: bgmEl ? !bgmEl.paused : false,
       sfxGain: sfxBus ? sfxBus.gain.value : null,
     };
   }

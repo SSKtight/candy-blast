@@ -4,6 +4,10 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>糖果交炸煎 - 登录</title>
+  <!-- 默认入口直进游戏：仅显式 ?login=1（设置里「返回登录页」）才停留在登录页，首帧前跳转避免闪现 -->
+  <script>
+    if (!new URLSearchParams(location.search).has("login")) location.replace("game.html");
+  </script>
   <link rel="stylesheet" href="style.css" />
   <!-- AB 分流引擎：首帧前判定变体，避免闪烁（实验设计见 docs/experiments/2026-10-04-login-consent-ab-test.md） -->
   <script>

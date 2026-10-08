@@ -12,19 +12,7 @@ import { attachDrag } from "./input/drag.js";
 import { createSound } from "./audio/sound.js";
 import { createGuide } from "./tutorial/guide.js";
 
-// 鉴权：登录页 doLogin 成功后写会话标记；缺失则回登录页（标记只活在当前会话）
-let authed = false;
-try {
-  authed = !!sessionStorage.getItem(CONFIG.save.authSessionKey);
-} catch {
-  authed = false;
-}
-if (!authed) {
-  location.replace("index.html");
-  // 页面卸载前冻结本模块执行，避免游戏短暂初始化/闪现
-  await new Promise(() => {});
-}
-
+// 入口策略：默认直进游戏页；登录页仅通过设置里「返回登录页」到达（index.html?login=1）
 const store = loadStore();
 
 const session = createSession({
@@ -408,7 +396,8 @@ function doQuit() {
   } catch {
     /* 忽略 */
   }
-  location.href = "index.html";
+  // ?login=1：告诉登录页这次是真要登录，别再自动跳回游戏
+  location.href = "index.html?login=1";
 }
 
 // 一次性气泡：首次进入正式局时，在重抽按钮旁提示（flag 持久化，仅弹一次）
@@ -526,6 +515,7 @@ window.__game = {
   hudView,
   modals,
   guide,
+  sound,
   restart: doRestart,
   resume: closeSettings,
   pause: openSettings,
