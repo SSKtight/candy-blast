@@ -106,12 +106,14 @@ export function attachDrag(opts) {
     // 锚点格中心相对克隆体左上角的偏移（克隆体按棋盘格大小 1:1 绘制）
     const ox = anchorDc * (cell + gap) + cell / 2;
     const oy = anchorDr * (cell + gap) + cell / 2;
+    // 触摸端：方块整体抬升到手指上方，避免手指遮挡落点预览（鼠标端指哪打哪）
+    const lift = e.pointerType === "touch" ? 60 : 0;
 
     const clone = buildClone(piece, cell);
-    // 拿起瞬间即让最左下锚点格对准指针，缩放也围绕该点，锚点不漂移
+    // 拿起瞬间即让最左下锚点格对准指针（触摸端为指针上方 lift 处），缩放围绕该点
     clone.style.transformOrigin = `${ox}px ${oy}px`;
     clone.style.left = `${e.clientX - ox}px`;
-    clone.style.top = `${e.clientY - oy}px`;
+    clone.style.top = `${e.clientY - lift - oy}px`;
     document.body.appendChild(clone);
     pieceEl.classList.add("g-dragging");
 
@@ -126,6 +128,7 @@ export function attachDrag(opts) {
       anchorDc,
       ox,
       oy,
+      lift,
       x: e.clientX,
       y: e.clientY,
       valid: false,
@@ -137,10 +140,11 @@ export function attachDrag(opts) {
   function updateDrag() {
     rafId = 0;
     if (!drag) return;
-    // 锚点格中心始终咬住指针
+    // 锚点格中心始终咬住指针（触摸端咬住指针上方 lift 处，与克隆体一致）
+    const py = drag.y - drag.lift;
     drag.clone.style.left = `${drag.x - drag.ox}px`;
-    drag.clone.style.top = `${drag.y - drag.oy}px`;
-    const cell = boardView.cellFromClientXy(drag.x, drag.y, 0.5);
+    drag.clone.style.top = `${py - drag.oy}px`;
+    const cell = boardView.cellFromClientXy(drag.x, py, 0.5);
     if (!cell) {
       // 完全离开棋盘（含容差区）：只静幽灵，不抖动、不响失败音——
       // 跟随指针的克隆体不应有任何额外位移

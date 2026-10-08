@@ -126,7 +126,7 @@ export function createGuide({ session, views, sound, store }) {
   }
 
   // 单个高光框定位到目标矩形（外扩 pad）
-  function placeSpotEl(el, rect, pad = 6) {
+  function placeSpotEl(el, rect, pad = 3) {
     if (!rect) {
       el.style.display = "none";
       return;
