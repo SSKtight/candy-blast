@@ -1,0 +1,925 @@
+/* ============================================================
+   糖果交炸煎 · 游戏页样式（.g- 前缀隔离登录页）
+   ============================================================ */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+:root {
+  /* 7 糖果色（颜色号 1..7 → --candy-N） */
+  --candy-1: #ff6b9d; /* 草莓粉 */
+  --candy-2: #c44dff; /* 葡萄紫 */
+  --candy-3: #4dabf7; /* 苏打蓝 */
+  --candy-4: #6fc3d0; /* 雾青 */
+  --candy-5: #51cf66; /* 苹果绿 */
+  --candy-6: #ff922b; /* 香橙 */
+  --candy-7: #f04e45; /* 朱红 */
+  --candy-pink: #ff6b9d;
+  --candy-purple: #c44dff;
+  /* 奶油糖果纸底（G4 稳色）：底色降明度 + 四周紫调暗角，边缘压光、视线聚焦棋盘 */
+  --bg-gradient:
+    radial-gradient(120% 95% at 50% 40%, transparent 52%, rgba(122, 68, 154, 0.18) 100%),
+    linear-gradient(160deg, #83cdc7 0%, #e5b5cb 52%, #e3bad3 100%);
+  --panel: rgba(255, 255, 255, 0.72);
+  --panel-solid: rgba(255, 255, 255, 0.95);
+  --ink: #5a3a6e;
+  --ink-soft: #8b73a0;
+  --groove: rgba(196, 77, 255, 0.14);
+  --groove-inner: rgba(255, 255, 255, 0.6);
+  --premium-gold: #ffc93c;
+  --radius-lg: 18px;
+  --cell-gap: 3px;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+    "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  background: var(--bg-gradient);
+  color: var(--ink);
+  overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
+}
+
+/* ===== 背景漂浮糖果（同登录页写法） ===== */
+.g-candy-bg {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+}
+.g-candy {
+  position: absolute;
+  border-radius: 50%;
+  opacity: 0.3;
+  filter: saturate(0.85);
+  animation: g-float 8s ease-in-out infinite;
+  /* 与前景糖块同族质感：切角高光 + 底暗影 + 亮描边（低透明度下只留体积感） */
+  background-image:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.55) 0%, transparent 45%),
+    linear-gradient(315deg, rgba(0, 0, 0, 0.16) 0%, transparent 45%);
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.35), inset 0 -3px 0 rgba(0, 0, 0, 0.1);
+}
+.g-candy::before,
+.g-candy::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  width: 12px;
+  height: 8px;
+  background-color: inherit;
+  transform: translateY(-50%);
+}
+.g-candy::before { left: -10px; border-radius: 4px 0 0 4px; }
+.g-candy::after { right: -10px; border-radius: 0 4px 4px 0; }
+.g-c1 { width: 40px; height: 40px; background-color: var(--candy-1); top: 8%; left: 7%; }
+.g-c2 { width: 30px; height: 30px; background-color: var(--candy-3); top: 18%; right: 10%; animation-delay: 1.5s; }
+.g-c3 { width: 35px; height: 35px; background-color: var(--candy-4); bottom: 22%; left: 8%; animation-delay: 3s; }
+.g-c4 { width: 28px; height: 28px; background-color: var(--candy-2); bottom: 12%; right: 13%; animation-delay: 2s; }
+.g-c5 { width: 24px; height: 24px; background-color: var(--candy-5); top: 48%; left: 4%; animation-delay: 4s; }
+.g-c6 { width: 32px; height: 32px; background-color: var(--candy-6); top: 62%; right: 5%; animation-delay: 0.8s; }
+
+@keyframes g-float {
+  0%, 100% { transform: translateY(0) rotate(-6deg); }
+  50% { transform: translateY(-18px) rotate(6deg); }
+}
+
+/* ===== 竖版骨架：整列同宽（棋盘=分数卡=托盘），vh 上限收敛到容器上保证纵向放得下 ===== */
+.g-app {
+  position: relative;
+  z-index: 1;
+  height: 100%;
+  width: 100%;
+  max-width: min(520px, calc(56vh + 28px));
+  margin: 0 auto;
+  padding: 10px 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* ===== 分数卡：左设置 ⚙️、右最高分为 38×38 线框盒互为镜像，本局分绝对居中 ===== */
+.g-hud {
+  position: relative;
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--panel);
+  border-radius: 12px;
+  padding: 7px 10px;
+  backdrop-filter: blur(6px);
+  box-shadow: 0 4px 14px rgba(122, 68, 154, 0.1);
+}
+.g-hud-box {
+  width: 38px;
+  height: 38px;
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border: 1.5px solid rgba(196, 77, 255, 0.5);
+  border-radius: 8px;
+  background: transparent;
+}
+button.g-hud-box {
+  padding: 0;
+  font-size: 17px;
+  line-height: 1;
+  cursor: pointer;
+  transition: transform 0.12s ease;
+}
+button.g-hud-box:active { transform: scale(0.9); }
+.g-hud-high-label { font-size: 10px; color: #b8a8c8; letter-spacing: 1px; line-height: 1.1; }
+/* 展示数字：Baloo 2 圆润糖感（仅拉丁数字，中文回落系统字体） */
+.g-score, .g-hud-high-value { font-family: "Baloo 2", -apple-system, "Segoe UI", "PingFang SC", sans-serif; }
+/* SVG 图标：去基线空隙；重抽按钮图标与文字横向排列 */
+.g-hud-box svg, .g-reroll-btn svg, .g-slot-crown svg, .g-energy-crown svg { display: block; }
+.g-reroll-btn { display: inline-flex; align-items: center; gap: 5px; }
+.g-hud-high-value {
+  font-size: 10px;
+  font-weight: 400;
+  color: var(--ink-soft);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+}
+/* 本局分：绝对居中，两侧盒宽度变化不影响重心（重要性必须高于最高分） */
+.g-score {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+@keyframes g-combo-pop {
+  0% { transform: scale(0.6); opacity: 0; }
+  70% { transform: scale(1.12); }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+/* ===== 棋盘 ===== */
+.g-board-wrap {
+  flex: 0 0 auto;
+  display: flex;
+  justify-content: center;
+}
+.g-board {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  display: grid;
+  grid-template-columns: repeat(9, 1fr);
+  grid-template-rows: repeat(9, 1fr);
+  gap: var(--cell-gap);
+  padding: 8px;
+  border-radius: 20px;
+  background: var(--panel);
+  backdrop-filter: blur(6px);
+  box-shadow: inset 0 2px 10px rgba(122, 68, 154, 0.12), 0 8px 24px rgba(122, 68, 154, 0.18);
+  touch-action: none;
+}
+.g-cell {
+  position: relative;
+  border-radius: 18%;
+  background: var(--groove);
+  box-shadow: inset 0 2px 3px rgba(122, 68, 154, 0.12), inset 0 -1px 2px var(--groove-inner);
+  overflow: hidden;
+}
+/* 已放置方块与托盘待放方块共用 N1「宝石淡边」：切角光泽保留，亮条减半，白描边/黑底边换成同色系 */
+.g-cell.g-filled,
+.g-piece-cell {
+  position: relative;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.55) 0%, transparent 32%),
+    linear-gradient(315deg, rgba(0, 0, 0, 0.28) 0%, transparent 38%),
+    var(--cell-color);
+  box-shadow:
+    inset 0 0 0 1.5px color-mix(in srgb, var(--cell-color) 80%, #ffffff),
+    inset 0 -4px 0 color-mix(in srgb, var(--cell-color) 62%, #2a1a3a),
+    inset 0 2px 0 rgba(255, 255, 255, 0.55);
+}
+.g-cell.g-filled::after,
+.g-piece-cell::after {
+  content: "";
+  position: absolute;
+  top: 9%;
+  left: 14%;
+  width: 72%;
+  height: 9%;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.55);
+}
+/* 合法落点幽灵：同套宝石质感（92% 透明） + 白描边 + 深紫外圈 + 彩影呼吸，浅底上一眼可见 */
+.g-cell.g-ghost {
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.55) 0%, transparent 32%),
+    linear-gradient(315deg, rgba(0, 0, 0, 0.28) 0%, transparent 38%),
+    var(--cell-color);
+  opacity: 0.92;
+  box-shadow:
+    inset 0 0 0 3px rgba(255, 255, 255, 0.95),
+    inset 0 -3px 0 rgba(0, 0, 0, 0.18),
+    0 0 0 2px rgba(122, 68, 154, 0.38),
+    0 5px 14px 2px rgba(196, 77, 255, 0.42);
+  animation: g-ghost-pulse 0.85s ease-in-out infinite;
+  z-index: 1;
+}
+@keyframes g-ghost-pulse {
+  0%, 100% {
+    box-shadow:
+      inset 0 0 0 3px rgba(255, 255, 255, 0.9),
+      inset 0 -3px 0 rgba(0, 0, 0, 0.18),
+      0 0 0 2px rgba(122, 68, 154, 0.3),
+      0 4px 10px 1px rgba(196, 77, 255, 0.32);
+  }
+  50% {
+    box-shadow:
+      inset 0 0 0 3px #ffffff,
+      inset 0 -3px 0 rgba(0, 0, 0, 0.18),
+      0 0 0 2px rgba(122, 68, 154, 0.5),
+      0 8px 20px 4px rgba(196, 77, 255, 0.55);
+  }
+}
+.g-cell.g-kb-cursor {
+  outline: 2px dashed rgba(196, 77, 255, 0.8);
+  outline-offset: -2px;
+}
+.g-cell.g-line-glow {
+  animation: g-line-glow 0.2s ease forwards;
+}
+@keyframes g-line-glow {
+  0% { filter: brightness(1.6); transform: scale(1.12); }
+  100% { filter: brightness(1); transform: scale(1); opacity: 0; }
+}
+/* 波浪扫消：逐格 stagger（--wave-delay），先高亮微鼓再收缩消失 */
+.g-cell.g-wave-clear {
+  animation: g-wave-clear 0.2s ease-in var(--wave-delay, 0s) both;
+  z-index: 1;
+}
+@keyframes g-wave-clear {
+  0% { transform: scale(1); filter: brightness(1); opacity: 1; }
+  35% { transform: scale(1.14); filter: brightness(1.7); opacity: 1; }
+  100% { transform: scale(0); filter: brightness(1.9); opacity: 0; }
+}
+.g-cell.g-place-pop {
+  animation: g-place-pop 0.12s ease;
+  z-index: 1;
+}
+@keyframes g-place-pop {
+  0% { transform: scale(0.35); }
+  65% { transform: scale(1.14); }
+  100% { transform: scale(1); }
+}
+.g-particle {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  z-index: 3;
+  pointer-events: none;
+  animation: g-particle 0.22s ease-out forwards;
+}
+@keyframes g-particle {
+  0% { transform: translate(0, 0) scale(1); opacity: 1; }
+  100% { transform: translate(var(--dx), var(--dy)) scale(0.2); opacity: 0; }
+}
+.g-board.g-over {
+  filter: brightness(0.58) saturate(0.75);
+  transition: filter 0.4s ease;
+}
+.g-board.g-board-shake {
+  animation: g-board-shake 0.4s ease;
+}
+@keyframes g-board-shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-5px); }
+  40% { transform: translateX(5px); }
+  60% { transform: translateX(-4px); }
+  80% { transform: translateX(4px); }
+}
+/* 槽内方块被放走/批被换：快速缩小淡出（配合 trayView 的 g-piece-out-ghost 克隆） */
+.g-piece.g-piece-out-ghost {
+  animation: g-piece-out 0.18s ease-in forwards;
+  z-index: 2;
+}
+@keyframes g-piece-out {
+  0% { transform: scale(1); opacity: 1; }
+  100% { transform: scale(0.55); opacity: 0; }
+}
+/* 逐格组装入场：整块不做变换（不变形、宽块不探出槽外），每格等比弹出，按 --cell-d 依次冒泡 */
+.g-piece.g-pop-in .g-piece-cell {
+  animation: g-cell-pop 0.24s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  animation-delay: var(--cell-d, 0ms);
+}
+@keyframes g-cell-pop {
+  0% { transform: scale(0); opacity: 0; }
+  60% { transform: scale(1.12); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+/* 即时气泡（tips） */
+.g-tip-card { width: min(84vw, 320px); }
+.g-tip-text { font-size: 15px; line-height: 1.6; margin: 6px 0 16px; color: var(--ink); }
+
+/* ===== 充能条：10px 细条（优先级高于重抽按钮），无文字无数字；渐变锚定轨道全长（JS 按填充比设 background-size），
+   前段紫粉融背景、后段橙黄预告将满 ===== */
+.g-energy { flex: 0 0 auto; }
+.g-energy-track {
+  position: relative;
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.5);
+  box-shadow: inset 0 1px 3px rgba(122, 68, 154, 0.18);
+  overflow: visible;
+}
+.g-energy-fill {
+  height: 100%;
+  width: 0%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #d9b3e8 0%, #f0a8cc 35%, #ffb35c 65%, #ffd43b 90%);
+  background-position: left center;
+  background-repeat: no-repeat;
+  transition: width 0.2s ease, background-size 0.2s ease;
+}
+/* 充满时的 👑 浮在轨道右端上方（细条上放不下） */
+.g-energy-crown {
+  position: absolute;
+  right: -2px;
+  top: -15px;
+  font-size: 13px;
+  line-height: 1;
+}
+
+/* ===== 托盘（三槽吃满整行） ===== */
+.g-tray-wrap {
+  flex: 0 0 auto;
+  padding: 4px 0 0;
+}
+.g-tray {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+.g-slot {
+  position: relative;
+  aspect-ratio: 1;
+  border-radius: 16px;
+  background: var(--panel);
+  box-shadow: inset 0 2px 8px rgba(122, 68, 154, 0.1);
+  display: grid;
+  place-items: center;
+  touch-action: none;
+  outline: none;
+}
+.g-slot:focus-visible {
+  box-shadow: 0 0 0 3px rgba(196, 77, 255, 0.55), inset 0 2px 8px rgba(122, 68, 154, 0.1);
+}
+/* 受控/优质框用 outline 而非 border：outline 不占内容宽度，三槽 clientWidth 一致，
+   trayView 按同一格单位拟合时各槽净距相同（负 offset 保持视觉位置与原边框一致） */
+.g-slot.is-controlled {
+  outline: 2px dashed rgba(196, 77, 255, 0.45);
+  outline-offset: -2px;
+}
+.g-slot.is-premium {
+  outline: 2px solid var(--premium-gold);
+  outline-offset: -2px;
+  box-shadow: 0 0 14px rgba(255, 201, 60, 0.7), inset 0 2px 8px rgba(255, 201, 60, 0.25);
+  animation: g-slot-gold 1.1s ease-in-out infinite;
+}
+@keyframes g-slot-gold {
+  0%, 100% {
+    box-shadow: 0 0 10px rgba(255, 201, 60, 0.55), inset 0 2px 8px rgba(255, 201, 60, 0.18);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(255, 201, 60, 0.95), inset 0 2px 10px rgba(255, 201, 60, 0.38);
+  }
+}
+.g-slot.is-premium .g-slot-crown {
+  animation: g-crown-pop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+@keyframes g-crown-pop {
+  from { transform: scale(0) rotate(-30deg); }
+  to { transform: scale(1) rotate(0); }
+}
+.g-slot-crown {
+  position: absolute;
+  top: -10px;
+  right: -6px;
+  font-size: 16px;
+  z-index: 2;
+  pointer-events: none;
+}
+.g-piece {
+  display: grid;
+  gap: 2px;
+  width: auto;
+  height: auto;
+  touch-action: none;
+  cursor: grab;
+}
+.g-piece.g-dragging {
+  opacity: 0.25;
+}
+/* 死块置灰：当前棋盘无合法落点，drag.js 同步拦截拿起 */
+.g-slot.is-dead {
+  cursor: not-allowed;
+}
+.g-slot.is-dead .g-piece {
+  filter: grayscale(0.85);
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.g-piece-cell {
+  border-radius: 18%;
+  /* 底色/阴影/高光斑与 .g-cell.g-filled 共用，保证上下外观一致 */
+}
+@keyframes g-shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-6px); }
+  40% { transform: translateX(6px); }
+  60% { transform: translateX(-4px); }
+  80% { transform: translateX(4px); }
+}
+.g-drag-clone {
+  position: fixed;
+  z-index: 50;
+  pointer-events: none;
+  /* left/top 已让最左下锚点格中心对准指针，缩放原点由 JS 设为该锚点 */
+  transform: scale(1.12);
+  filter: drop-shadow(0 10px 14px rgba(122, 68, 154, 0.4));
+}
+
+/* ===== 重抽：幽灵胶囊置底居中（优先级末位：小号、无投影、低存在，渐变太抢眼不用） ===== */
+.g-reroll-wrap {
+  position: relative;
+  flex: 0 0 auto;
+  display: flex;
+  justify-content: center;
+}
+.g-reroll-btn {
+  padding: 5px 14px;
+  border: 1px solid rgba(196, 77, 255, 0.18);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.4);
+  color: var(--ink-soft);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.12s ease;
+}
+.g-reroll-btn:active { transform: scale(0.95); }
+.g-reroll-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+/* 一次性重抽提示：锚点在置底重抽按钮，气泡向上展开（translate 属性与入场动画的 transform 互不干扰） */
+.g-reroll-tip {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  translate: -50% 0;
+  width: 220px;
+  z-index: 40;
+  background: var(--panel-solid);
+  color: var(--ink);
+  border-radius: 14px;
+  padding: 10px 14px;
+  font-size: 13px;
+  line-height: 1.5;
+  box-shadow: 0 10px 30px rgba(90, 30, 110, 0.3);
+  animation: g-card-in 0.25s ease;
+}
+.g-reroll-tip button {
+  margin-top: 8px;
+  padding: 4px 14px;
+  font-size: 12px;
+}
+.g-replay-guide {
+  margin-top: 4px;
+  font-size: 12px;
+  opacity: 0.75;
+  text-decoration: underline;
+}
+
+/* ===== 飘分/文字 ===== */
+.g-float-text {
+  position: fixed;
+  z-index: 60;
+  pointer-events: none;
+  font-weight: 800;
+  font-size: 20px;
+  color: var(--candy-purple);
+  text-shadow: 0 2px 0 #fff, 0 0 12px rgba(255, 255, 255, 0.9);
+  animation: g-float-up 0.8s ease forwards;
+  white-space: nowrap;
+}
+.g-float-text.g-multiline { color: #e84708; font-size: 24px; }
+@keyframes g-float-up {
+  0% { opacity: 0; transform: translate(-50%, -6px) scale(0.7); }
+  20% { opacity: 1; transform: translate(-50%, -14px) scale(1.1); }
+  100% { opacity: 0; transform: translate(-50%, -64px) scale(1); }
+}
+
+/* ===== 弹窗（T13 细化） ===== */
+.g-modal-mask {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  background: rgba(90, 58, 110, 0.45);
+  backdrop-filter: blur(4px);
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  animation: g-fade-in 0.2s ease;
+}
+
+/* 非阻塞轻提示条（Toast）：自动浮现/消失，不拦截操作 */
+.g-toast {
+  position: fixed;
+  top: 14px;
+  left: 50%;
+  transform: translate(-50%, -160%);
+  z-index: 90;
+  background: linear-gradient(135deg, #f7b733, #fc8c1a);
+  color: #3a2410;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 9px 16px;
+  border-radius: 999px;
+  white-space: nowrap;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+  pointer-events: none;
+  transition: transform 0.35s cubic-bezier(0.2, 1.4, 0.4, 1);
+}
+.g-toast.show {
+  transform: translate(-50%, 0);
+}
+.g-modal-card {
+  width: min(88vw, 360px);
+  background: var(--panel-solid);
+  border-radius: 24px;
+  padding: 26px 22px 22px;
+  text-align: center;
+  box-shadow: 0 20px 60px rgba(90, 30, 110, 0.35);
+  animation: g-card-in 0.28s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+@keyframes g-fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes g-card-in {
+  from { transform: translateY(24px) scale(0.9); opacity: 0; }
+  to { transform: translateY(0) scale(1); opacity: 1; }
+}
+.g-modal-title { font-size: 24px; margin-bottom: 12px; color: var(--ink); }
+.g-modal-btn {
+  width: 100%;
+  margin-top: 10px;
+  padding: 13px;
+  border: none;
+  border-radius: 14px;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  color: #fff;
+  background: linear-gradient(135deg, var(--candy-pink), var(--candy-purple));
+  box-shadow: 0 4px 14px rgba(196, 77, 255, 0.4);
+}
+.g-modal-btn.g-secondary {
+  background: #f1e4fa;
+  color: var(--ink);
+  box-shadow: none;
+}
+.g-modal-btn.g-text {
+  background: none;
+  box-shadow: none;
+  color: var(--ink-soft);
+  font-size: 13px;
+  padding: 8px;
+}
+/* ===== 结算海报卡 ===== */
+/* 结算专用遮罩：60% 纯黑、不模糊（区别于暂停/设置的紫色毛玻璃） */
+.g-modal-mask.g-modal-veil {
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: none;
+}
+.g-rc-card {
+  --rc-bg: linear-gradient(165deg, #7a5296 0%, #5a3a72 58%, #472c60 100%);
+  --rc-glow: rgba(255, 255, 255, 0.14);
+  --rc-track: rgba(255, 255, 255, 0.15);
+  --rc-num: #ffffff;
+  --rc-btn-ink: #5a3a6e;
+  position: relative;
+  width: min(88vw, 300px);
+  border-radius: 23px;
+  padding: 20px 20px 16px;
+  text-align: center;
+  color: #fff;
+  background: var(--rc-bg);
+  overflow: hidden;
+  box-shadow: 0 22px 54px rgba(0, 0, 0, 0.5);
+  animation: g-card-in 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.g-rc-card.is-record {
+  --rc-bg: linear-gradient(165deg, #9b45c8 0%, #7b2bb0 52%, #4d1a78 100%);
+  --rc-glow: rgba(255, 201, 60, 0.55);
+  --rc-num: #ffd84d;
+}
+/* 顶部光晕：普通局克制白光；新纪录局金色迸发 */
+.g-rc-card::before {
+  content: "";
+  position: absolute;
+  top: -78px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 250px;
+  height: 150px;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, var(--rc-glow), transparent);
+  pointer-events: none;
+}
+.g-rc-inner { position: relative; z-index: 1; }
+.g-rc-kicker {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.72);
+  font-weight: 700;
+  letter-spacing: 3px;
+}
+.g-rc-ringwrap { position: relative; width: 158px; height: 158px; margin: 8px auto 0; }
+.g-rc-ring { transform: rotate(-90deg); display: block; }
+.g-rc-track { stroke: var(--rc-track); }
+/* 环由 JS rAF 逐帧驱动（与环心数字同一时间轴），不用 CSS transition */
+.g-rc-center {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.g-rc-num {
+  font-size: 50px;
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: -1px;
+  font-variant-numeric: tabular-nums;
+  color: var(--rc-num);
+  text-shadow: 0 3px 16px rgba(0, 0, 0, 0.28);
+}
+.g-rc-card.is-record .g-rc-num {
+  text-shadow: 0 0 22px rgba(255, 216, 77, 0.55), 0 3px 10px rgba(0, 0, 0, 0.3);
+}
+/* 分差/破纪录行：入场动画（1s）结束后才淡入 */
+.g-rc-gap {
+  margin-top: 12px;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.85);
+  min-height: 18px; /* 淡入前后不引起卡片高度跳动 */
+  opacity: 0;
+  transform: translateY(4px);
+}
+.g-rc-gap.g-rc-gap-show {
+  opacity: 1;
+  transform: none;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+.g-rc-gap b { color: #ffd9a8; font-size: 14px; }
+.g-rc-rec { color: var(--rc-num); font-weight: 900; margin-right: 4px; }
+.g-rc-card.is-record .g-rc-gap b { color: var(--rc-num); }
+.g-rc-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 7px;
+  margin: 14px 0;
+}
+.g-rc-stat {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  padding: 9px 2px 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+.g-rc-ic { width: 22px; height: 22px; display: grid; place-items: center; }
+.g-rc-stat b { font-size: 16px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.g-rc-stat span:last-child { font-size: 10px; color: rgba(255, 255, 255, 0.72); }
+.g-rc-card .g-modal-btn.g-rc-btn {
+  margin-top: 0;
+  padding: 12px;
+  border-radius: 13px;
+  font-size: 15.5px;
+  font-weight: 800;
+  color: var(--rc-btn-ink);
+  background: #fff;
+  box-shadow: 0 5px 14px rgba(0, 0, 0, 0.25);
+}
+.g-rc-card.is-record .g-modal-btn.g-rc-btn {
+  color: #5a3a10;
+  background: linear-gradient(135deg, #ffe066, #ffb320);
+  box-shadow: 0 6px 18px rgba(255, 179, 32, 0.45);
+}
+.g-rc-ghost {
+  width: 100%;
+  margin-top: 4px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  padding: 8px;
+  font-size: 12.5px;
+  color: rgba(255, 255, 255, 0.68);
+}
+/* 彩纸：仅新纪录态，下落一轮后停在卡片底部之外（overflow:hidden 裁掉） */
+.g-rc-confetti { position: absolute; inset: 0; pointer-events: none; z-index: 2; overflow: hidden; }
+.g-rc-confetti i {
+  position: absolute;
+  top: -8px;
+  width: 7px;
+  height: 10px;
+  border-radius: 2px;
+  opacity: 0.95;
+  animation-name: g-rc-fall;
+  animation-timing-function: linear;
+  animation-iteration-count: 1;
+  animation-fill-mode: forwards;
+  animation-play-state: paused; /* 入场动画结束、卡片加 g-rc-celebrate 后才开落 */
+}
+.g-rc-card.g-rc-celebrate .g-rc-confetti i { animation-play-state: running; }
+@keyframes g-rc-fall {
+  to { transform: translateY(460px) rotate(540deg); }
+}
+
+/* ===== 设置面板 ===== */
+.g-settings-list {
+  margin: 10px 0 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.g-settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  background: var(--panel);
+  border-radius: 14px;
+}
+.g-settings-label {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.g-settings-quit {
+  margin-top: 4px;
+}
+.g-settings-version {
+  margin-top: 16px;
+  font-size: 12px;
+  color: var(--ink-soft);
+  opacity: 0.7;
+}
+.g-confirm-text {
+  margin: 6px 0 14px;
+  font-size: 15px;
+  color: var(--ink);
+  line-height: 1.5;
+}
+
+/* 糖果风开关 */
+.g-switch {
+  position: relative;
+  width: 52px;
+  height: 30px;
+  padding: 0;
+  border: none;
+  border-radius: 999px;
+  background: #e3d5ea;
+  cursor: pointer;
+  transition: background 0.2s ease;
+  flex: 0 0 auto;
+}
+.g-switch[aria-checked="true"] {
+  background: linear-gradient(135deg, var(--candy-pink), var(--candy-purple));
+}
+.g-switch-thumb {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 2px 5px rgba(90, 30, 110, 0.25);
+  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.g-switch[aria-checked="true"] .g-switch-thumb {
+  transform: translateX(22px);
+}
+
+/* ===== 暂停遮罩（棋盘降亮、动画冻结） ===== */
+.g-app.is-paused .g-board,
+.g-app.is-paused .g-tray,
+.g-app.is-paused .g-energy {
+  filter: brightness(0.55);
+}
+.g-app.is-paused * {
+  animation-play-state: paused !important;
+}
+
+/* ===== 新手引导 ===== */
+.g-app.in-tutorial .g-energy,
+.g-app.in-tutorial #btn-reroll { visibility: hidden; }
+/* 聚焦强高光：不压暗其余界面，仅用亮金描边 + 金晕 + 紫边衬底，浅底上依然聚焦 */
+.g-guide-spot {
+  position: fixed;
+  z-index: 70;
+  pointer-events: none;
+  border-radius: 14px;
+  border: 3px solid #f0b429;
+  background: rgba(255, 224, 102, 0.16);
+  box-shadow:
+    0 0 0 2px rgba(122, 68, 154, 0.3),
+    inset 0 0 14px 2px rgba(255, 200, 60, 0.5),
+    0 0 16px 4px rgba(240, 180, 30, 0.8),
+    0 0 34px 12px rgba(255, 190, 60, 0.45);
+  animation: g-guide-pulse 1.05s ease-in-out infinite;
+  transition: left 0.2s ease, top 0.2s ease, width 0.2s ease, height 0.2s ease;
+}
+@keyframes g-guide-pulse {
+  0%, 100% {
+    box-shadow:
+      0 0 0 2px rgba(122, 68, 154, 0.22),
+      inset 0 0 12px 1px rgba(255, 200, 60, 0.4),
+      0 0 14px 3px rgba(240, 180, 30, 0.7),
+      0 0 28px 9px rgba(255, 190, 60, 0.4);
+  }
+  50% {
+    box-shadow:
+      0 0 0 3px rgba(122, 68, 154, 0.38),
+      inset 0 0 18px 4px rgba(255, 210, 90, 0.65),
+      0 0 24px 7px rgba(240, 180, 30, 0.9),
+      0 0 48px 18px rgba(255, 180, 50, 0.6);
+  }
+}
+.g-guide-bubble.guide-bubble-wrong {
+  animation: g-shake 0.4s ease;
+  border: 2px solid #ff6b6b;
+}
+.g-guide-text { margin: 0; }
+.g-guide-btn {
+  display: block;
+  margin: 10px auto 0;
+  padding: 6px 22px;
+  font-size: 14px;
+}
+.g-guide-bubble {
+  position: fixed;
+  z-index: 71;
+  max-width: 240px;
+  background: var(--panel-solid);
+  color: var(--ink);
+  padding: 12px 16px;
+  border-radius: 16px;
+  font-size: 14px;
+  line-height: 1.5;
+  box-shadow: 0 10px 30px rgba(90, 30, 110, 0.3);
+  pointer-events: auto;
+  animation: g-card-in 0.25s ease;
+}
+.g-guide-bubble::after {
+  content: "";
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  background: inherit;
+  transform: rotate(45deg);
+}
+
+/* ===== 无障碍 ===== */
+.g-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ===== 响应式：横屏/窄屏（vh 上限同步收敛到容器，保持整列同宽） ===== */
+@media (max-height: 700px) {
+  .g-app { max-width: min(520px, calc(50vh + 24px)); gap: 7px; padding: 8px 12px 10px; }
+}
+@media (max-width: 375px) {
+  :root { --cell-gap: 2px; }
+  .g-app { padding: 8px 8px 10px; }
+}

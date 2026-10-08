@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>糖果交炸煎</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/baloo-2@5/400.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/baloo-2@5/700.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/baloo-2@5/800.css" />
+  <link rel="stylesheet" href="game.css?v=20261006l" />
+</head>
+<body>
+  <!-- 背景漂浮糖果（类名 .g- 前缀，避免与登录页样式碰撞） -->
+  <div class="g-candy-bg" aria-hidden="true">
+    <span class="g-candy g-c1"></span>
+    <span class="g-candy g-c2"></span>
+    <span class="g-candy g-c3"></span>
+    <span class="g-candy g-c4"></span>
+    <span class="g-candy g-c5"></span>
+    <span class="g-candy g-c6"></span>
+  </div>
+
+  <main class="g-app" id="app">
+    <!-- 分数卡：左设置 ⚙️、右最高分为 38×38 线框盒互为镜像，本局分绝对居中不受两侧影响 -->
+    <section class="g-hud" id="hud" aria-live="off">
+      <button type="button" class="g-hud-box" id="btn-settings" aria-label="设置"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="3.4"/><path d="M12 2.6v2.8M12 18.6v2.8M2.6 12h2.8M18.6 12h2.8M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2"/></svg></button>
+      <span class="g-score" id="score">0</span>
+      <div class="g-hud-box g-hud-high" aria-label="历史最高分">
+        <span class="g-hud-high-label">最高</span>
+        <span class="g-hud-high-value" id="high-score">0</span>
+      </div>
+    </section>
+
+    <!-- 棋盘 -->
+    <section class="g-board-wrap">
+      <div id="board" class="g-board" aria-label="9 乘 9 棋盘" role="grid"></div>
+    </section>
+
+    <!-- 充能条 -->
+    <section class="g-energy" aria-label="优质块充能条">
+      <div class="g-energy-track">
+        <div class="g-energy-fill" id="energy-bar"></div>
+        <span class="g-energy-crown" id="energy-crown" hidden><svg viewBox="0 0 24 24" width="13" height="13" aria-hidden="true"><path d="M3 8.5 7 12l5-6 5 6 4-3.5L19.5 18h-15z" fill="#ffc93c" stroke="#d99413" stroke-width="1.6" stroke-linejoin="round"/></svg></span>
+      </div>
+    </section>
+
+    <!-- 托盘（三槽吃满整行以放大方块） -->
+    <section class="g-tray-wrap">
+      <div class="g-tray" id="tray">
+        <div class="g-slot" data-i="0">
+          <span class="g-slot-crown" hidden><svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="M3 8.5 7 12l5-6 5 6 4-3.5L19.5 18h-15z" fill="#ffc93c" stroke="#d99413" stroke-width="1.6" stroke-linejoin="round"/></svg></span>
+        </div>
+        <div class="g-slot" data-i="1">
+          <span class="g-slot-crown" hidden><svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="M3 8.5 7 12l5-6 5 6 4-3.5L19.5 18h-15z" fill="#ffc93c" stroke="#d99413" stroke-width="1.6" stroke-linejoin="round"/></svg></span>
+        </div>
+        <div class="g-slot is-controlled" data-i="2">
+          <span class="g-slot-crown" hidden><svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="M3 8.5 7 12l5-6 5 6 4-3.5L19.5 18h-15z" fill="#ffc93c" stroke="#d99413" stroke-width="1.6" stroke-linejoin="round"/></svg></span>
+        </div>
+      </div>
+    </section>
+
+    <!-- 重抽：幽灵胶囊置底居中（每批一次，快捷键 R） -->
+    <section class="g-reroll-wrap">
+      <button type="button" class="g-reroll-btn" id="btn-reroll" aria-label="重抽（每批一次，快捷键 R）"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.5-5.8"/><path d="M20 3v4.5h-4.5"/></svg>换一批</button>
+      <span id="reroll-tip"></span>
+    </section>
+  </main>
+
+  <!-- 弹窗/引导/提示 挂载点 -->
+  <div id="modal-root"></div>
+  <div id="tip-root"></div>
+  <div id="live" class="g-sr-only" aria-live="polite"></div>
+
+  <script type="module" src="js/main.js?v=20261006l"></script>
+</body>
+</html>
